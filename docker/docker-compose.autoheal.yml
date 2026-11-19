@@ -1,0 +1,17 @@
+# 可选加固：容器 healthcheck 变 unhealthy 时自动重启
+# 用法（与主 compose 叠加）：
+#   docker compose -f docker-compose.yml -f docker-compose.autoheal.yml up -d
+#
+# 说明：单独放一个文件，是因为这需要额外拉 willfarrell/autoheal 镜像；
+#       国内拉不动 Docker Hub 时，主 compose 不受影响。
+services:
+  autoheal:
+    image: willfarrell/autoheal:latest
+    container_name: autoheal
+    restart: unless-stopped
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: "autoheal"   # 只处理打了 autoheal=true 标签的容器
+      AUTOHEAL_INTERVAL: "60"                # 每 60 秒检查一次
+      AUTOHEAL_START_PERIOD: "120"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro

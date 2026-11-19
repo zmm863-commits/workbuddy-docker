@@ -1,0 +1,14 @@
+# 打包产物
+deploy/*.zip
+deploy/*.tar.gz
+
+# 运行时数据（含登录态/密码，绝不入库）
+home/
+logs/
+state/
+inbox/
+vnc-password.txt
+
+# 构建与临时文件
+*.deb
+*.log

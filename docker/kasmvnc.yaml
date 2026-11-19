@@ -1,0 +1,57 @@
+# KasmVNC 配置模板（由 entrypoint.sh 复制到 $HOME/.vnc/kasmvnc.yaml）
+logging:
+  log_writer_name: all
+  log_dest: logfile
+  level: 30
+
+network:
+  protocol: http          # 纯 HTTP + Basic 认证；需要 HTTPS 时在前面加反代
+  interface: 0.0.0.0
+  websocket_port: 8444
+  ssl:
+    require_ssl: false
+
+desktop:
+  # 初始分辨率；allow_resize 打开后客户端可以按浏览器窗口调整（自适应）
+  resolution:
+    width: 1920
+    height: 1080
+  allow_resize: true
+  pixel_depth: 24
+
+security:
+  brute_force_protection:
+    blacklist_threshold: 5
+    blacklist_timeout: 10
+
+encoding:
+  max_frame_rate: 24        # 24fps 对桌面操作足够，编码量比 30fps 少 20%
+  # 画质策略：恒定 9 会让每一帧都走接近无损编码，NAS 的 CPU 扛不住 -> 卡顿
+  # 改成动态区间：带宽/CPU 宽松时自动升到 8，紧张时降到 4
+  rect_encoding_mode:
+    min_quality: 4
+    max_quality: 8
+    consider_lossless_quality: 9    # 9 = 永不触发全量无损（无损是最大瓶颈）
+    rectangle_compress_threads: auto
+  video_encoding_mode:
+    jpeg_quality: 7          # 视频/动态区域用 7，明显更省 CPU
+    webp_quality: 7
+    max_resolution:
+      width: 1920
+      height: 1080
+    # 缩小时用双线性插值，比最近邻平滑，不会出现台阶
+    scaling_algorithm: bilinear
+  compare_framebuffer: auto
+
+data_loss_prevention:
+  clipboard:
+    server_to_client:
+      enabled: true
+      size: unlimited
+    client_to_server:
+      enabled: true
+      size: unlimited
+
+server:
+  advanced:
+    kasm_password_file: /opt/wb/home/.kasmpasswd

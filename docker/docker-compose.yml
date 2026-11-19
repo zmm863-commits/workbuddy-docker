@@ -1,0 +1,105 @@
+# ============================================================
+# WorkBuddy 官方 Linux 客户端 · 容器化
+# 适用于：极空间 / 群晖 / 任意支持 docker compose 的 Linux
+# ------------------------------------------------------------
+# 唯一部署方式：**创建项目时构建**
+#   1. 部署包解压到项目目录（目录里必须有 Dockerfile 与 bootstrap/）
+#   2. 「Docker → Compose → 新建项目」，项目位置 = 该目录
+#   3. 粘贴本文件内容，确认构建上下文为当前目录 “.”，创建
+#
+# 构建过程（约 10~15 分钟，只需一次）：
+#   拉 debian:bookworm-slim → 装 X11/KasmVNC/Chromium/输入法/nodejs
+#   → 查官方更新接口取最新客户端 → 下载并校验 sha256 → 生成镜像
+# 构建完成后容器自动启动；以后重建项目是秒级（镜像已在本地）
+# ------------------------------------------------------------
+# 整理：泡泡猫 · 公众号 paopaocat888
+# ============================================================
+
+services:
+  workbuddy-client:
+
+    # ---- 镜像来源：从项目目录里的 Dockerfile 构建 ----
+    build:
+      context: .                  # 构建上下文 = 项目目录（极空间会提示确认，选错会报 COPY not found）
+      dockerfile: Dockerfile      # 包内根目录的 Dockerfile（已按 bootstrap/ 布局写好）
+    image: workbuddy-client:1.0.0 # 构建产物打这个 tag，重建/复用都认它
+    container_name: workbuddy-client   # 固定容器名：日志、健康检查、脚本命令都按它写
+
+    # ---- 运行策略 ----
+    restart: unless-stopped       # NAS 开机自启、崩溃自动拉起；手动 stop 后不再自启
+    # ↑ 排障期可临时改成 "no"：容器退出后不再重试，日志能稳定停在失败点
+    init: true                    # 用 tini 当 1 号进程，回收僵尸进程（反复重启不会堆积）
+
+    # ---- 端口映射：左边是浏览器访问的宿主端口，右边是容器内端口（不要改右边）----
+    ports:
+      - "23880:8444"              # 远程桌面（KasmVNC，HTTP + Basic 认证）
+      - "23881:6082"              # 收件箱上传页（VNC 没有文件通道，用它代替拖拽）
+      # 端口被占用时只改左边，并把下面对应的 *_PUBLIC_PORT 一起改
+
+    # ---- 运行参数 ----
+    environment:
+      TZ: Asia/Shanghai
+
+      # 桌面分辨率：allow_resize 打开时这只是初始值，连上后会跟随浏览器窗口（1:1 最清晰）
+      RESOLUTION: "1440x900"
+      # 想固定不跟随就填，例如 "1280x800"（改完 entrypoint 会自动关掉 allow_resize）
+      FIXED_RESOLUTION: ""
+
+      # 性能档位（NAS 无 GPU，靠 CPU 编码，清晰度与流畅度只能二选一）：
+      #   lite     画质 2~6 / 18fps，最流畅，小字略软（建议配 FIXED_RESOLUTION: "1280x800"）
+      #   balanced 画质 4~8 / 24fps，默认，日常够用
+      #   quality  画质 6~9 / 30fps，最清晰，明显更吃 CPU
+      PERF_PROFILE: "balanced"
+
+      # 容器内端口，一般不要动（改了要同步上面的 ports 右边）
+      KASM_PORT: "8444"
+      UPLOAD_PORT: "6082"
+
+      # 浏览器实际访问的端口：必须与 ports 左边一致
+      DESKTOP_PUBLIC_PORT: "23880"   # 只用于打印访问地址
+      UPLOAD_PUBLIC_PORT: "23881"    # 桌面右下角「传文件」按钮指向它
+      # 上传页不想暴露端口时设成 "none"：不注入按钮，文件改走 SMB 收件箱
+
+      # 客户端版本与平台
+      DEB_PLATFORM: "auto"        # auto 按系统架构选；也可强制 x64 / arm64
+      DEB_URL: ""                 # 留空=查官方更新接口取最新版；填了就用这个地址
+      DEB_SHA256: ""              # 与 DEB_URL 配对使用（强制校验）；只填一个会报错退出
+
+      VNC_USER: "root"            # 登录用户名，可改成任意名字（改后旧用户名立即失效）
+      VNC_PASSWORD: "iloveppcat"  # 登录密码，正式使用请改掉
+
+    # ---- 持久化目录：app 与 bootstrap 在镜像里，这里只挂需要保留的数据（相对路径，按项目目录解析）----
+    volumes:
+      - ./home:/opt/wb/home       # 登录态，删了要重新扫码登录（最重要，务必备份）
+      - ./logs:/opt/wb/logs       # 运行日志（含 kasmvnc-start.log）
+      - ./state:/opt/wb/state     # vnc-password.txt、KasmVNC 配置
+      - ./inbox:/opt/wb/inbox     # 收件箱，可在 NAS 上设为 SMB 共享
+
+    # ---- 资源共享 ----
+    shm_size: "1gb"               # Chromium 需要足够共享内存，太小会崩标签页
+
+    # ---- 健康检查：每分钟用 Basic 认证敲一下桌面，5 分钟后才开始判定（躲开首次构建后的启动慢）----
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -u \"$${VNC_USER:-root}:$$(cat /opt/wb/state/vnc-password.txt 2>/dev/null || echo x)\" http://127.0.0.1:8444/ >/dev/null || exit 1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 300s
+
+    # ---- 失控保护：超过 3g 被 OOM 杀掉并由 restart 拉起（比拖垮 NAS 好）----
+    # 如果日志出现 oom=true 的反复重启，把这里调大到 4g~6g
+    deploy:
+      resources:
+        limits:
+          memory: 3g
+
+    # ---- 给 autoheal 用的标记（配合 docker-compose.autoheal.yml 才会生效）----
+    labels:
+      autoheal: "true"
+
+    # ---- 日志轮转：不限制的话 json-file 会一直涨，把磁盘吃满 ----
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
