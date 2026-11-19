@@ -73,10 +73,11 @@ COPY docker/entrypoint.sh      /opt/wb/bootstrap/entrypoint.sh
 COPY docker/kasmvnc.yaml       /opt/wb/bootstrap/kasmvnc.yaml
 COPY docker/xstartup-kasm.sh   /opt/wb/bootstrap/xstartup-kasm.sh
 COPY docker/upload-server.mjs  /opt/wb/bootstrap/upload-server.mjs
+COPY docker/healthcheck.sh     /opt/wb/bootstrap/healthcheck.sh
 COPY docker/fcitx5-profile     /opt/wb/bootstrap/fcitx5-profile
 
 # 标记：依赖已就绪（卷里没有 state 时也不重装，entrypoint 会按“能力探测”判断）
-RUN chmod +x /opt/wb/bootstrap/entrypoint.sh /opt/wb/bootstrap/xstartup-kasm.sh \
+RUN chmod +x /opt/wb/bootstrap/entrypoint.sh /opt/wb/bootstrap/xstartup-kasm.sh /opt/wb/bootstrap/healthcheck.sh \
     && mkdir -p /opt/wb/home /opt/wb/run /opt/wb/logs /opt/wb/state /opt/wb/inbox \
     && printf 'baked\n' > /opt/wb/state/apt.done
 
@@ -84,6 +85,6 @@ VOLUME ["/opt/wb/home", "/opt/wb/logs", "/opt/wb/state", "/opt/wb/inbox"]
 EXPOSE 8444 6082
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-  CMD bash -c 'curl -fsS -u "root:$(cat /opt/wb/state/vnc-password.txt 2>/dev/null || echo x)" http://127.0.0.1:8444/ >/dev/null || exit 1'
+  CMD bash /opt/wb/bootstrap/healthcheck.sh
 
 CMD ["bash", "/opt/wb/bootstrap/entrypoint.sh"]

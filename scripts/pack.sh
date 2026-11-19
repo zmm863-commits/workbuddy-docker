@@ -9,7 +9,7 @@ STAGE="$(mktemp -d)"; trap 'rm -rf "$STAGE"' EXIT
 D="$STAGE/workbuddy-client-deploy"
 
 mkdir -p "$D/bootstrap"
-cp "$ROOT"/docker/{entrypoint.sh,kasmvnc.yaml,xstartup-kasm.sh,upload-server.mjs,fcitx5-profile} "$D/bootstrap/"
+cp "$ROOT"/docker/{entrypoint.sh,kasmvnc.yaml,xstartup-kasm.sh,upload-server.mjs,fcitx5-profile,healthcheck.sh} "$D/bootstrap/"
 cp "$ROOT"/docker/docker-compose.yml "$D/"
 cp "$ROOT"/docker/docker-compose.autoheal.yml "$D/"          # 可选加固（叠加使用）
 cp "$ROOT"/deploy/install.sh "$D/"
@@ -33,6 +33,7 @@ pairs = [
     ('docker/xstartup-kasm.sh',   'bootstrap/xstartup-kasm.sh'),
     ('docker/upload-server.mjs',  'bootstrap/upload-server.mjs'),
     ('docker/fcitx5-profile',     'bootstrap/fcitx5-profile'),
+    ('docker/healthcheck.sh',      'bootstrap/healthcheck.sh'),
     ('docker/docker-compose.yml', 'docker-compose.yml'),
     ('docker/docker-compose.autoheal.yml','docker-compose.autoheal.yml'),
     ('deploy/install.sh',         'install.sh'),
