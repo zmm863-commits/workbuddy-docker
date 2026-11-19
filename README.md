@@ -1,6 +1,6 @@
 # WorkBuddy in Docker · 在 NAS 上用浏览器跑官方桌面客户端
 
-腾讯 [WorkBuddy](https://www.workbuddy.cn/) 官方只发 Windows / macOS / 手机端，Linux 一栏写着「请到系统应用商店下载」。这个项目把那套官方 Linux 客户端装进容器，配 KasmVNC 提供浏览器访问 —— **在极空间 / 群晖这类没有桌面的 NAS 上，也能 24 小时挂着 WorkBuddy**。
+腾讯 [WorkBuddy](https://www.workbuddy.cn/) 提供 Windows、macOS、手机端，**也提供官方 Linux 版**（deb/rpm，x64 与 arm64），只是 Linux 包走应用商店分发、官网下载页不给直链，也没有公开的 Docker 镜像。这个项目把官方 Linux 客户端装进容器，配 KasmVNC 提供浏览器访问 —— **在极空间 / 群晖这类没有桌面的 NAS 上，也能 24 小时挂着 WorkBuddy**。
 
 跑的是官方客户端本体，登录你自己的账号，专家、资料库、本地定时任务都是真的。
 
